@@ -2,4 +2,17 @@
   <PropertyGroup>
     <Version>0.0.0</Version> <!-- x-release-please-version -->
   </PropertyGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <!-- Enables XML documentation output, required for some Roslyn analyzers like IDE0005 -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <!-- Suppresses warnings about missing XML comments on public types and members -->
+    <NoWarn>CS1591</NoWarn>
+    <!-- Prevents the warning about missing GenerateDocumentationFile from being treated as an error -->
+    <WarningsNotAsErrors>EnableGenerateDocumentationFile</WarningsNotAsErrors>
+  </PropertyGroup>
 </Project>
