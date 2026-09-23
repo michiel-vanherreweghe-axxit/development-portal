@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { Check, PullRequest, ReviewState, WatchRuns } from "../api/types";
-import { ago, attentionOf, buildCards, buildPullRequests, review } from "./model";
+import { ago, attentionOf, buildCards, buildPullRequests, pullRequestErrors, review } from "./model";
 
 const pullRequest = (overrides: Partial<PullRequest> = {}): PullRequest => ({
   repository: "acme/api",
@@ -58,6 +58,21 @@ describe("buildPullRequests", () => {
     // Assert
     expect(built[0]).toMatchObject({ ready: false, mergeable: true });
     expect(built[1]?.mergeable).toBe(false);
+  });
+
+  it("blocks the merge on a check that is neither green nor failing", () => {
+    // Arrange
+    const pullRequests = [
+      pullRequest({ reviewState: "Approved", checks: [check("success"), check("action_required")] }),
+      pullRequest({ number: 2, reviewState: "Approved", checks: [check("success"), check("skipped")] }),
+    ];
+
+    // Act
+    const built = buildPullRequests(pullRequests);
+
+    // Assert
+    expect(built[0]).toMatchObject({ ready: false, mergeable: false });
+    expect(built[1]).toMatchObject({ ready: true, mergeable: true });
   });
 
   it("marks an approved pull request with passing checks ready", () => {
@@ -131,6 +146,21 @@ describe("attentionOf", () => {
 
     // Assert
     expect(attention).toEqual({ items: [], any: false });
+  });
+});
+
+describe("pull requests the api could not read", () => {
+  it("surfaces the repository's error on its card instead of reading as all clear", () => {
+    // Arrange
+    const raw = [pullRequest({ repository: "acme/api", error: "GitHub.RequestFailed" })];
+    const rows = [watchRuns("success", { repository: "acme/api" })];
+
+    // Act
+    const cards = buildCards(rows, buildPullRequests(raw), new Map(), pullRequestErrors(raw));
+
+    // Assert
+    expect(cards[0]?.pullRequestError).toBe("GitHub.RequestFailed");
+    expect(cards[0]?.attention.items.map(([, text]) => text)).toContain("pull requests unreadable");
   });
 });
 

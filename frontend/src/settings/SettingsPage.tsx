@@ -10,11 +10,13 @@ const TOKEN_SETTINGS_URL = "https://github.com/settings/tokens";
 const MESSAGES: Record<string, string> = {
   "SignIn.TokenInvalid": "GitHub did not accept that token. It must be valid and carry the repo scope.",
   "SignIn.TokenRequired": "Paste a personal access token first.",
+  "GitHub.RequestFailed": "GitHub could not be reached. The token was not checked — try again.",
 };
 
 const message = (failure: unknown) => {
   if (failure instanceof ApiError) {
-    return (failure.code && MESSAGES[failure.code]) ?? failure.message;
+    // A problem without an errors array carries its code as the message.
+    return MESSAGES[failure.code ?? failure.message] ?? failure.message;
   }
 
   return failure instanceof Error ? failure.message : "The token could not be checked.";

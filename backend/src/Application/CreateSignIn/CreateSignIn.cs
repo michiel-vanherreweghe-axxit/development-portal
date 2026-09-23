@@ -14,11 +14,15 @@ public sealed class CreateSignIn(IGitHubService gitHubService, ProvisionUser.Pro
         var account = await gitHubService.GetAccountAsync(request.PersonalAccessToken, cancellationToken);
         if (!account.IsSuccess)
         {
-            return Result<CreateSignInResponse>.Invalid(new ValidationError
-            {
-                Identifier = nameof(request.PersonalAccessToken),
-                ErrorCode = "SignIn.TokenInvalid",
-            });
+            // GitHub not answering is not the same as GitHub refusing the token: telling the user
+            // to make a new one would send them after a token that is perfectly fine.
+            return account.Status == ResultStatus.Unauthorized
+                ? Result<CreateSignInResponse>.Invalid(new ValidationError
+                {
+                    Identifier = nameof(request.PersonalAccessToken),
+                    ErrorCode = "SignIn.TokenInvalid",
+                })
+                : Result<CreateSignInResponse>.Error(GitHubErrors.RequestFailed);
         }
 
         var provisioned = await provisionUser.ExecuteAsync(

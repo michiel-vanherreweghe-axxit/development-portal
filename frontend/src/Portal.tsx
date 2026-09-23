@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import { closePullRequest, mergePullRequest } from "./api/portal";
 import type { Session } from "./auth/useSession";
@@ -10,6 +10,7 @@ import {
   buildPullRequests,
   cardId,
   latestRun,
+  pullRequestErrors,
   pullRequestKey,
   watchKey,
   watchName,
@@ -44,7 +45,12 @@ export function Portal({ session }: { session: Session }) {
     () => new Map(data.repositories.map((repository) => [repository.fullName, repository.pushedAt])),
     [data.repositories],
   );
-  const cards = useMemo(() => buildCards(data.rows, pullRequests, pushedAt), [data.rows, pullRequests, pushedAt]);
+  const errors = useMemo(() => pullRequestErrors(data.pullRequests ?? []), [data.pullRequests]);
+  const cards = useMemo(
+    () => buildCards(data.rows, pullRequests, pushedAt, errors),
+    [data.rows, pullRequests, pushedAt, errors],
+  );
+  const closeAsk = useCallback(() => setAsk(null), []);
 
   const hot = cards.filter((card) => card.attention.any);
   const shown = onlyAttention ? hot : cards;
@@ -54,13 +60,10 @@ export function Portal({ session }: { session: Session }) {
 
   const watch = (repository: string, workflow: Workflow) =>
     void data.commit(
-      {
-        ...data.watches,
-        watches: [
-          ...data.watches.watches,
-          { repository, workflowFile: workflow.file, displayName: workflow.name },
-        ],
-      },
+      (current) => ({
+        ...current,
+        watches: [...current.watches, { repository, workflowFile: workflow.file, displayName: workflow.name }],
+      }),
       `Now watching ${workflow.name} in ${repository}.`,
       `${repository}/${workflow.file}`,
     );
@@ -77,10 +80,10 @@ export function Portal({ session }: { session: Session }) {
       verb: "Stop watching",
       onYes: () =>
         void data.commit(
-          {
-            ...data.watches,
-            watches: data.watches.watches.filter((candidate) => watchKey(candidate) !== watchKey(row)),
-          },
+          (current) => ({
+            ...current,
+            watches: current.watches.filter((candidate) => watchKey(candidate) !== watchKey(row)),
+          }),
           `Stopped watching ${watchName(row)}.`,
           watchKey(row),
         ),
@@ -98,10 +101,10 @@ export function Portal({ session }: { session: Session }) {
       verb: "Stop watching",
       onYes: () =>
         void data.commit(
-          {
-            ...data.watches,
-            watches: data.watches.watches.filter((candidate) => candidate.repository !== repository),
-          },
+          (current) => ({
+            ...current,
+            watches: current.watches.filter((candidate) => candidate.repository !== repository),
+          }),
           `Stopped watching ${repository} — ${workflows} workflow${workflows > 1 ? "s" : ""} removed.`,
           repository,
         ),
@@ -183,7 +186,7 @@ export function Portal({ session }: { session: Session }) {
             onClosePullRequest={closePull}
             onMergePullRequest={mergePull}
             onRunLimit={(runLimit) =>
-              void data.commit({ ...data.watches, runLimit }, `Showing the last ${runLimit} runs.`, null)
+              void data.commit((current) => ({ ...current, runLimit }), `Showing the last ${runLimit} runs.`, null)
             }
           />
         ),
@@ -262,7 +265,7 @@ export function Portal({ session }: { session: Session }) {
         user={session.user}
         fallbackPage={connected ? "repositories" : "settings"}
       />
-      <Confirm ask={ask} onClose={() => setAsk(null)} />
+      <Confirm ask={ask} onClose={closeAsk} />
       <Toasts items={toasts} />
     </>
   );

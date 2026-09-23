@@ -1,5 +1,6 @@
 using System.Net;
 using Ardalis.Result;
+using Polly;
 using Infrastructure.Services.GitHub.Models;
 using Microsoft.Extensions.Logging;
 using Refit;
@@ -66,44 +67,45 @@ public interface IGitHubService
 
 internal sealed class GitHubService(IGitHubApi gitHubApi, ILogger<GitHubService> logger) : IGitHubService
 {
-    private const int MaxRepositoryPages = 5;
-    private const int RepositoryPageSize = 100;
+    private const int MaxPages = 5;
+    private const int PageSize = 100;
     private const int PullRequestsPerRepository = 20;
-    private const int CheckRunsPerCommit = 100;
-    private const int ReviewsPerPullRequest = 100;
     private const string SquashMerge = "squash";
 
-    public Task<Result<GitHubAccount>> GetAccountAsync(string accessToken, CancellationToken cancellationToken = default) =>
-        CallAsync(() => gitHubApi.GetAccountAsync(accessToken, cancellationToken));
+    // A token GitHub rejects is the user's problem to fix; anything else is ours, and the two
+    // must not reach the sign-in page as the same message.
+    public async Task<Result<GitHubAccount>> GetAccountAsync(
+        string accessToken,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            return Result<GitHubAccount>.Success(await gitHubApi.GetAccountAsync(accessToken, cancellationToken));
+        }
+        catch (ApiException exception)
+            when (exception.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
+        {
+            return Result<GitHubAccount>.Unauthorized(GitHubErrors.TokenRejected);
+        }
+        catch (Exception exception) when (IsCallFailure(exception))
+        {
+            logger.LogWarning(exception, "GitHub call failed");
+
+            return Result<GitHubAccount>.Error(GitHubErrors.RequestFailed);
+        }
+    }
 
     public Task<Result<IReadOnlyList<GitHubRepository>>> GetRepositoriesAsync(CancellationToken cancellationToken = default) =>
-        CallAsync<IReadOnlyList<GitHubRepository>>(async () =>
-        {
-            var repositories = new List<GitHubRepository>();
-
-            for (var page = 1; page <= MaxRepositoryPages; page++)
-            {
-                var batch = await gitHubApi.GetRepositoriesAsync(page, RepositoryPageSize, cancellationToken);
-                repositories.AddRange(batch);
-
-                if (batch.Count < RepositoryPageSize)
-                {
-                    break;
-                }
-            }
-
-            return repositories;
-        });
+        CallAsync<IReadOnlyList<GitHubRepository>>(() =>
+            PagedAsync(page => gitHubApi.GetRepositoriesAsync(page, PageSize, cancellationToken)));
 
     public Task<Result<IReadOnlyList<GitHubWorkflow>>> GetWorkflowsAsync(
         string owner,
         string repository,
         CancellationToken cancellationToken = default) =>
-        CallAsync(async () =>
-        {
-            var workflows = await gitHubApi.GetWorkflowsAsync(owner, repository, cancellationToken);
-            return workflows.Workflows;
-        });
+        CallAsync<IReadOnlyList<GitHubWorkflow>>(() =>
+            PagedAsync(async page =>
+                (await gitHubApi.GetWorkflowsAsync(owner, repository, page, PageSize, cancellationToken)).Workflows));
 
     public Task<Result<IReadOnlyList<GitHubRun>>> GetWorkflowRunsAsync(
         string owner,
@@ -160,21 +162,46 @@ internal sealed class GitHubService(IGitHubApi gitHubApi, ILogger<GitHubService>
         string repository,
         string sha,
         CancellationToken cancellationToken = default) =>
-        CallAsync(async () =>
-        {
-            var checkRuns = await gitHubApi.GetCheckRunsAsync(owner, repository, sha, CheckRunsPerCommit, cancellationToken);
-            return checkRuns.CheckRuns;
-        });
+        // Every page of them: the merge gate reads this list, so a failing check must not fall
+        // off the end of it.
+        CallAsync<IReadOnlyList<GitHubCheckRun>>(() =>
+            PagedAsync(async page =>
+                (await gitHubApi.GetCheckRunsAsync(owner, repository, sha, page, PageSize, cancellationToken)).CheckRuns));
 
     public Task<Result<IReadOnlyList<GitHubReview>>> GetReviewsAsync(
         string owner,
         string repository,
         int number,
         CancellationToken cancellationToken = default) =>
-        CallAsync(() => gitHubApi.GetReviewsAsync(owner, repository, number, ReviewsPerPullRequest, cancellationToken));
+        CallAsync<IReadOnlyList<GitHubReview>>(() =>
+            PagedAsync(page => gitHubApi.GetReviewsAsync(owner, repository, number, page, PageSize, cancellationToken)));
 
-    // GitHub refusing a write is an outcome the user sees, not an incident: 405 and 409 are
-    // how it answers a merge it will not do — conflicts, protection rules, a head that moved.
+    private static async Task<IReadOnlyList<T>> PagedAsync<T>(Func<int, Task<IReadOnlyList<T>>> readPage)
+    {
+        var items = new List<T>();
+
+        for (var page = 1; page <= MaxPages; page++)
+        {
+            var batch = await readPage(page);
+            items.AddRange(batch);
+
+            if (batch.Count < PageSize)
+            {
+                break;
+            }
+        }
+
+        return items;
+    }
+
+    // Polly answers a timeout or an open circuit with its own exception type, which derives from
+    // none of the http ones; without this the whole dashboard fails on one slow repository.
+    private static bool IsCallFailure(Exception exception) =>
+        exception is ApiException or HttpRequestException or TimeoutException or ExecutionRejectedException;
+
+    // GitHub refusing a write is an outcome the user sees, not an incident: 403, 405 and 409 are
+    // how it answers a write it will not do — a token without write access, conflicts, protection
+    // rules, a head that moved.
     private async Task<Result> CallAsync(Func<Task> call)
     {
         try
@@ -184,13 +211,14 @@ internal sealed class GitHubService(IGitHubApi gitHubApi, ILogger<GitHubService>
             return Result.Success();
         }
         catch (ApiException exception)
-            when (exception.StatusCode is HttpStatusCode.MethodNotAllowed or HttpStatusCode.Conflict)
+            when (exception.StatusCode is HttpStatusCode.Forbidden or HttpStatusCode.MethodNotAllowed
+                or HttpStatusCode.Conflict)
         {
             logger.LogWarning(exception, "GitHub refused the write");
 
             return Result.Conflict(GitHubErrors.Refused);
         }
-        catch (Exception exception) when (exception is ApiException or HttpRequestException or TimeoutException)
+        catch (Exception exception) when (IsCallFailure(exception))
         {
             logger.LogWarning(exception, "GitHub call failed");
 
@@ -206,7 +234,7 @@ internal sealed class GitHubService(IGitHubApi gitHubApi, ILogger<GitHubService>
         {
             return Result<T>.Success(await call());
         }
-        catch (Exception exception) when (exception is ApiException or HttpRequestException or TimeoutException)
+        catch (Exception exception) when (IsCallFailure(exception))
         {
             logger.LogWarning(exception, "GitHub call failed");
 

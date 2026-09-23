@@ -58,7 +58,8 @@ public class PullRequestActionsEndpointTests(PortalApiFactory factory) : IClassF
 
     [Theory]
     [InlineData("failure")]
-    [InlineData("in_progress")]
+    [InlineData("action_required")]
+    [InlineData("cancelled")]
     public async Task Post_Merge_WithChecksThatAreNotGreen_ReturnsConflictAndMergesNothing(string conclusion)
     {
         // Arrange
@@ -108,6 +109,24 @@ public class PullRequestActionsEndpointTests(PortalApiFactory factory) : IClassF
         // Assert
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
         Assert.DoesNotContain(factory.GitHub.Merged, merged => merged.Contains("#16"));
+    }
+
+    [Fact]
+    public async Task Post_Merge_WithACheckThatHasNotFinished_ReturnsConflict()
+    {
+        // Arrange
+        var client = factory.CreateSignedInClient();
+        await factory.SeedUserAsync();
+        Approved();
+        factory.GitHub.CheckRuns = (_, _, _) => Result<IReadOnlyList<GitHubCheckRun>>.Success(
+            [new GitHubCheckRun("build", null, "queued", DateTimeOffset.UtcNow, null, null)]);
+
+        // Act
+        var response = await client.PostAsync($"/api/v1/pull-requests/{Repository}/17/merge", null, CancellationToken);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.DoesNotContain(factory.GitHub.Merged, merged => merged.Contains("#17"));
     }
 
     [Fact]

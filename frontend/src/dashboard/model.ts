@@ -4,6 +4,13 @@ import type { PullRequest, ReviewState, Run, Watch, WatchRuns } from "../api/typ
 export const BAD = ["failure", "timed_out", "startup_failure"];
 export const BUSY = ["in_progress", "queued", "requested", "waiting"];
 
+/**
+ * What the api will merge over, named rather than inferred: a check carrying anything else —
+ * cancelled, action_required, still running, a conclusion GitHub has not taught us — blocks it.
+ * Mirrors MergePullRequest.cs.
+ */
+export const GREEN = ["success", "skipped", "neutral"];
+
 const LABELS: Record<string, string> = {
   success: "passed",
   failure: "failed",
@@ -22,6 +29,14 @@ export const label = (conclusion: string) => LABELS[conclusion] ?? conclusion;
 export const cardId = (repository: string) => `g-${repository.replace("/", "-")}`;
 
 export const watchKey = (watch: Watch) => `${watch.repository}/${watch.workflowFile}`;
+
+/** The repositories whose pull requests the api could not read, and why. */
+export const pullRequestErrors = (pullRequests: PullRequest[]) =>
+  new Map(
+    pullRequests
+      .filter((pullRequest) => pullRequest.error)
+      .map((pullRequest) => [pullRequest.repository, pullRequest.error!] as const),
+  );
 
 export const pullRequestKey = (pullRequest: PullRequest) => `${pullRequest.repository}#${pullRequest.number}`;
 
@@ -84,14 +99,17 @@ export function buildPullRequests(pullRequests: PullRequest[]): PullRequestView[
             ? "run"
             : "pass";
 
+      const green =
+        pullRequest.checks.length > 0 && pullRequest.checks.every((check) => GREEN.includes(check.conclusion));
+
       return {
         ...pullRequest,
         failing,
         running,
         passing,
         state,
-        ready: !pullRequest.draft && pullRequest.reviewState === "Approved" && state === "pass",
-        mergeable: !pullRequest.draft && pullRequest.reviewState !== "ChangesRequested" && state === "pass",
+        ready: !pullRequest.draft && pullRequest.reviewState === "Approved" && green,
+        mergeable: !pullRequest.draft && pullRequest.reviewState !== "ChangesRequested" && green,
         blocked: pullRequest.reviewState === "ChangesRequested" || state === "fail",
       };
     });
@@ -103,7 +121,11 @@ export const latestRun = (watch: WatchRuns): Run | undefined => watch.runs[0];
  * What needs attention in one repository: failing or running workflows, and pull requests
  * with failing checks, changes requested, or approved and ready to merge.
  */
-export function attentionOf(workflows: WatchRuns[], pullRequests: PullRequestView[]) {
+export function attentionOf(
+  workflows: WatchRuns[],
+  pullRequests: PullRequestView[],
+  pullRequestError: string | null = null,
+) {
   const counted = (n: number, singular: string, plural = `${singular}s`) =>
     `${n} ${n > 1 ? plural : singular}`;
 
@@ -114,6 +136,9 @@ export function attentionOf(workflows: WatchRuns[], pullRequests: PullRequestVie
   const readyToMerge = pullRequests.filter((p) => p.ready).length;
 
   const items: [tone: "fail" | "run" | "pass", text: string][] = [];
+  if (pullRequestError) {
+    items.push(["fail", "pull requests unreadable"]);
+  }
   if (workflowsFailing) {
     items.push(["fail", `${counted(workflowsFailing, "workflow")} failing`]);
   }
@@ -137,6 +162,8 @@ export interface RepositoryCardData {
   repository: string;
   workflows: WatchRuns[];
   pullRequests: PullRequestView[];
+  /** Why its pull requests could not be read, if they could not. */
+  pullRequestError: string | null;
   activity: string;
   attention: ReturnType<typeof attentionOf>;
 }
@@ -146,6 +173,7 @@ export function buildCards(
   rows: WatchRuns[],
   pullRequests: PullRequestView[],
   pushedAt: Map<string, string | null>,
+  pullRequestErrors: Map<string, string> = new Map(),
 ): RepositoryCardData[] {
   const byRepository = new Map<string, WatchRuns[]>();
   for (const row of rows) {
@@ -163,7 +191,16 @@ export function buildCards(
         .sort()
         .pop()!;
 
-      return { repository, workflows, pullRequests: owned, activity, attention: attentionOf(workflows, owned) };
+      const pullRequestError = pullRequestErrors.get(repository) ?? null;
+
+      return {
+        repository,
+        workflows,
+        pullRequests: owned,
+        pullRequestError,
+        activity,
+        attention: attentionOf(workflows, owned, pullRequestError),
+      };
     })
     .sort((a, b) => b.activity.localeCompare(a.activity));
 }

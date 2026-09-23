@@ -32,7 +32,7 @@ export function RepositoryCard({
   onClosePullRequest,
   onMergePullRequest,
 }: RepositoryCardProps) {
-  const { repository, workflows, pullRequests, attention } = card;
+  const { repository, workflows, pullRequests, pullRequestError, attention } = card;
   const [owner, name] = repository.split("/");
   const dropping = pending === repository;
 
@@ -99,6 +99,8 @@ export function RepositoryCard({
             <p className="none">
               <Spinner label="Loading" /> Loading pull requests…
             </p>
+          ) : pullRequestError ? (
+            <p className="none">Could not read pull requests — {pullRequestError}</p>
           ) : pullRequests.length ? (
             [...pullRequests]
               .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))

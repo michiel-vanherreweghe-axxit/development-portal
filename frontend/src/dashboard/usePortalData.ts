@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { ApiError } from "../api/client";
 import { readPullRequests, readRepositories, readRuns, readWatches, updateWatches } from "../api/portal";
@@ -18,6 +18,17 @@ export function usePortalData(notify: Notify, onUnauthorized: () => void, enable
   const [busy, setBusy] = useState(enabled);
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
   const [pending, setPending] = useState<string | null>(null);
+
+  // The list the next change builds on, which is not the same as the last one the api answered:
+  // a second edit can be made while the first is still in flight.
+  const latestWatches = useRef(watches);
+
+  // Only the newest load may write: a slow fan-out must not land on top of a newer one.
+  const loadId = useRef(0);
+
+  useEffect(() => {
+    latestWatches.current = watches;
+  }, [watches]);
 
   const report = useCallback(
     (failure: unknown, message: string, texts: Record<string, string> = {}) => {
@@ -39,15 +50,23 @@ export function usePortalData(notify: Notify, onUnauthorized: () => void, enable
   );
 
   const load = useCallback(async () => {
+    const id = ++loadId.current;
+
     try {
       const [runs, pulls] = await Promise.all([readRuns(), readPullRequests()]);
+      if (id !== loadId.current) {
+        return;
+      }
+
       setRows(runs);
       setPullRequests(pulls);
       setUpdatedAt(new Date());
     } catch (failure) {
       report(failure, "Could not reach the portal api.");
     } finally {
-      setBusy(false);
+      if (id === loadId.current) {
+        setBusy(false);
+      }
     }
   }, [report]);
 
@@ -66,7 +85,10 @@ export function usePortalData(notify: Notify, onUnauthorized: () => void, enable
       .catch((failure: unknown) => report(failure, "Could not read your repositories."));
 
     readWatches()
-      .then(setWatches)
+      .then((loaded) => {
+        latestWatches.current = loaded;
+        setWatches(loaded);
+      })
       .catch((failure: unknown) => report(failure, "Could not read your watched workflows."));
 
     // Chained rather than called, so the first state lands after this effect instead of during it.
@@ -77,11 +99,16 @@ export function usePortalData(notify: Notify, onUnauthorized: () => void, enable
   }, [enabled, load, refresh, report]);
 
   /**
-   * The api replaces the whole watch list, so every change sends the next full state.
-   * `mark` is the row that should show as pending while it saves.
+   * The api replaces the whole watch list, so every change sends the next full state. The change
+   * is applied to the newest list rather than to a copy captured at render, so a second edit made
+   * while the first is saving does not send the first one back undone. `mark` is the row that
+   * should show as pending while it saves.
    */
   const commit = useCallback(
-    async (next: Watches, message: string, mark: string | null) => {
+    async (change: (current: Watches) => Watches, message: string, mark: string | null) => {
+      const next = change(latestWatches.current);
+      latestWatches.current = next;
+
       setPending(mark);
       setBusy(true);
       try {

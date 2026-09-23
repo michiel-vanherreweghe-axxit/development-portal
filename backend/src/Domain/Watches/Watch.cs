@@ -89,11 +89,15 @@ public sealed partial class Watch : Entity
     public static bool IsValidFullName(string? fullName) => TryParseFullName(fullName, out _, out _);
 
     public static bool IsValidWorkflowFile(string? workflowFile) =>
-        !string.IsNullOrWhiteSpace(workflowFile) &&
+        workflowFile is not null &&
         workflowFile.Length <= WorkflowFileMaxLength &&
-        workflowFile.IndexOfAny(['/', '\\']) < 0;
+        WorkflowFilePattern().IsMatch(workflowFile);
 
     // Stricter than GitHub allows, so a name can never walk out of its url segment.
     [GeneratedRegex(@"^([A-Za-z0-9._-]{1,100})/([A-Za-z0-9._-]{1,100})$")]
     private static partial Regex FullNamePattern();
+
+    // The file itself, never a path: a bare ".." would collapse out of the url segment it sits in.
+    [GeneratedRegex(@"^[A-Za-z0-9_-][A-Za-z0-9._-]*\.(yml|yaml)$")]
+    private static partial Regex WorkflowFilePattern();
 }

@@ -24,8 +24,11 @@ public class WatchTests
 
     [Theory]
     [InlineData("release-api.yml", true)]
+    [InlineData("ci.yaml", true)]
     [InlineData("../../etc/passwd", false)]
     [InlineData("nested/ci.yml", false)]
+    [InlineData("..", false)]
+    [InlineData("ci.txt", false)]
     [InlineData("", false)]
     public void IsValidWorkflowFile_ForEveryShape_AcceptsOnlyAFileName(string workflowFile, bool expected)
     {

@@ -21,6 +21,14 @@ internal static class GitHubRetryPolicy
             return ValueTask.FromResult(false);
         }
 
+        // A wait longer than we are willing to sit on is not retried at all. Falling back to the
+        // short exponential backoff would come back sooner than GitHub asked, which is what turns
+        // a secondary rate limit into a longer one.
+        if (RetryAfter(response) is { } wait && wait > MaxHonouredDelay)
+        {
+            return ValueTask.FromResult(false);
+        }
+
         // 404 is an answer, not a failure: a deleted workflow must reach its dashboard row.
         var shouldRetry = response.StatusCode is HttpStatusCode.RequestTimeout or HttpStatusCode.TooManyRequests
                           || (int)response.StatusCode >= 500

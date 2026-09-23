@@ -16,7 +16,12 @@ internal interface IGitHubApi
         CancellationToken cancellationToken);
 
     [Get("/repos/{owner}/{repository}/actions/workflows")]
-    public Task<GitHubWorkflowList> GetWorkflowsAsync(string owner, string repository, CancellationToken cancellationToken);
+    public Task<GitHubWorkflowList> GetWorkflowsAsync(
+        string owner,
+        string repository,
+        [AliasAs("page")] int page,
+        [AliasAs("per_page")] int perPage,
+        CancellationToken cancellationToken);
 
     [Get("/repos/{owner}/{repository}/actions/workflows/{workflowFile}/runs")]
     public Task<GitHubRunList> GetWorkflowRunsAsync(
@@ -61,6 +66,7 @@ internal interface IGitHubApi
         string owner,
         string repository,
         string sha,
+        [AliasAs("page")] int page,
         [AliasAs("per_page")] int perPage,
         CancellationToken cancellationToken);
 
@@ -69,6 +75,7 @@ internal interface IGitHubApi
         string owner,
         string repository,
         int number,
+        [AliasAs("page")] int page,
         [AliasAs("per_page")] int perPage,
         CancellationToken cancellationToken);
 }

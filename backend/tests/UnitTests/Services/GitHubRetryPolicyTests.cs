@@ -67,6 +67,20 @@ public class GitHubRetryPolicyTests
         Assert.Null(ignored);
     }
 
+    [Fact]
+    public async Task ShouldHandleAsync_ForARetryAfterLongerThanWeWait_StopsInsteadOfComingBackSooner()
+    {
+        // Arrange
+        using var response = new HttpResponseMessage(HttpStatusCode.TooManyRequests);
+        response.Headers.RetryAfter = new RetryConditionHeaderValue(TimeSpan.FromHours(1));
+
+        // Act
+        var shouldRetry = await GitHubRetryPolicy.ShouldHandleAsync(RetryArguments(response));
+
+        // Assert
+        Assert.False(shouldRetry);
+    }
+
     private static RetryPredicateArguments<HttpResponseMessage> RetryArguments(HttpResponseMessage response) =>
         new(ResilienceContextPool.Shared.Get(), Outcome.FromResult(response), attemptNumber: 0);
 

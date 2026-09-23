@@ -12,25 +12,49 @@ public sealed class ProvisionUser(ApplicationDbContext context, TimeProvider tim
         var existing = await context.Users
             .FirstOrDefaultAsync(user => user.GitHubId == request.GitHubId, cancellationToken);
 
-        var now = timeProvider.GetUtcNow();
-
-        if (existing is null)
+        if (existing is not null)
         {
-            var created = User.Create(request.GitHubId, request.Login, request.AvatarUrl, now);
-            if (!created.IsSuccess)
-            {
-                return Result.Invalid(created.ValidationErrors.ToList());
-            }
-
-            await context.Users.AddAsync(created.Value, cancellationToken);
+            return await SignInAsync(existing, request, cancellationToken);
         }
-        else
+
+        var created = User.Create(request.GitHubId, request.Login, request.AvatarUrl, timeProvider.GetUtcNow());
+        if (!created.IsSuccess)
         {
-            var signedIn = existing.SignIn(request.Login, request.AvatarUrl, now);
-            if (!signedIn.IsSuccess)
+            return Result.Invalid(created.ValidationErrors.ToList());
+        }
+
+        await context.Users.AddAsync(created.Value, cancellationToken);
+
+        try
+        {
+            await context.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException)
+        {
+            // Two first sign-ins at once: the unique index on GitHubId lets one insert through,
+            // and the loser signs in on the row the winner wrote instead of failing.
+            context.Entry(created.Value).State = EntityState.Detached;
+
+            var winner = await context.Users
+                .FirstOrDefaultAsync(user => user.GitHubId == request.GitHubId, cancellationToken);
+
+            if (winner is null)
             {
-                return signedIn;
+                throw;
             }
+
+            return await SignInAsync(winner, request, cancellationToken);
+        }
+
+        return Result.Success();
+    }
+
+    private async Task<Result> SignInAsync(User user, ProvisionUserRequest request, CancellationToken cancellationToken)
+    {
+        var signedIn = user.SignIn(request.Login, request.AvatarUrl, timeProvider.GetUtcNow());
+        if (!signedIn.IsSuccess)
+        {
+            return signedIn;
         }
 
         await context.SaveChangesAsync(cancellationToken);

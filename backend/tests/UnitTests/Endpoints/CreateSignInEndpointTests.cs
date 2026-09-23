@@ -50,7 +50,7 @@ public class CreateSignInEndpointTests(PortalApiFactory factory) : IClassFixture
     {
         // Arrange
         var client = factory.CreateClient();
-        factory.GitHub.Account = _ => Result<GitHubAccount>.Error(GitHubErrors.RequestFailed);
+        factory.GitHub.Account = _ => Result<GitHubAccount>.Unauthorized(GitHubErrors.TokenRejected);
 
         // Act
         var response = await client.PostAsJsonAsync(
@@ -60,6 +60,24 @@ public class CreateSignInEndpointTests(PortalApiFactory factory) : IClassFixture
 
         // Assert
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.False(response.Headers.Contains("Set-Cookie"));
+    }
+
+    [Fact]
+    public async Task Post_WhenGitHubCannotBeAnswered_DoesNotBlameTheToken()
+    {
+        // Arrange
+        var client = factory.CreateClient();
+        factory.GitHub.Account = _ => Result<GitHubAccount>.Error(GitHubErrors.RequestFailed);
+
+        // Act
+        var response = await client.PostAsJsonAsync(
+            BaseUrl,
+            new CreateSignInRequest { PersonalAccessToken = "ghp_a_perfectly_good_token" },
+            CancellationToken);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
         Assert.False(response.Headers.Contains("Set-Cookie"));
     }
 
