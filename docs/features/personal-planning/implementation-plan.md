@@ -19,8 +19,8 @@ milestones:
     commit: bba39a5
   - id: 2
     title: GitHub issue read and search in the GitHub service
-    status: todo
-    commit: null
+    status: done
+    commit: 046c3ab
   - id: 3
     title: Plan item operations and endpoints
     status: todo
