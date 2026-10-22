@@ -5,7 +5,7 @@ branch:     feat/issue-8
 worktree:   /workspace/repository
 convention: docs/features/<slug>/     # no prior feature docs; defaulted to per-feature folder
 language:   en
-approved:   false
+approved: true
 database:   portal
 seeded:     false
 pr:         null
