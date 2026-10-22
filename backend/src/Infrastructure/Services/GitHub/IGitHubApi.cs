@@ -78,4 +78,17 @@ internal interface IGitHubApi
         [AliasAs("page")] int page,
         [AliasAs("per_page")] int perPage,
         CancellationToken cancellationToken);
+
+    [Get("/repos/{owner}/{repository}/issues/{number}")]
+    public Task<GitHubIssue> GetIssueAsync(
+        string owner,
+        string repository,
+        int number,
+        CancellationToken cancellationToken);
+
+    [Get("/search/issues?sort=updated&order=desc")]
+    public Task<GitHubIssueSearch> SearchIssuesAsync(
+        [AliasAs("q")] string query,
+        [AliasAs("per_page")] int perPage,
+        CancellationToken cancellationToken);
 }

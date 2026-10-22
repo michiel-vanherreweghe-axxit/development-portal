@@ -39,6 +39,15 @@ public static class GitHubMapper
             File = workflow.Path.Split('/')[^1],
         };
 
+    public static IssueDto ToDto(GitHubIssue issue) =>
+        new()
+        {
+            Number = issue.Number,
+            Title = issue.Title,
+            State = issue.State,
+            Url = issue.HtmlUrl,
+        };
+
     public static PullRequestDto ToDto(GitHubPullRequest pullRequest, string repository) =>
         new()
         {

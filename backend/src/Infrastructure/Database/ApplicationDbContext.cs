@@ -1,4 +1,5 @@
 using Domain;
+using Domain.Planning;
 using Domain.Users;
 using Domain.Watches;
 using Microsoft.EntityFrameworkCore;
@@ -10,6 +11,8 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
     public DbSet<User> Users { get; set; } = null!;
 
     public DbSet<Watch> Watches { get; set; } = null!;
+
+    public DbSet<PlanItem> PlanItems { get; set; } = null!;
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {

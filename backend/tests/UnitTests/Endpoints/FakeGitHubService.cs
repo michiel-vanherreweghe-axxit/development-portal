@@ -45,8 +45,22 @@ public sealed class FakeGitHubService : IGitHubService
     public Func<string, string, int, Result<IReadOnlyList<GitHubReview>>> Reviews { get; set; } =
         (_, _, _) => Result<IReadOnlyList<GitHubReview>>.Success([]);
 
+    public Func<string, string, int, Result<GitHubIssue>> Issue { get; set; } = DefaultIssue;
+
+    public Func<string, string, string, Result<IReadOnlyList<GitHubIssue>>> IssueSearch { get; set; } =
+        (_, _, _) => Result<IReadOnlyList<GitHubIssue>>.Success([]);
+
     public Func<string, Result<GitHubAccount>> Account { get; set; } =
         _ => Result<GitHubAccount>.Success(new GitHubAccount(PortalApiFactory.GitHubId, PortalApiFactory.Login, null));
+
+    public static Result<GitHubIssue> DefaultIssue(string owner, string repository, int number) =>
+        Result<GitHubIssue>.Success(new GitHubIssue(
+            number,
+            $"Issue {number}",
+            "open",
+            $"https://gh/{owner}/{repository}/issues/{number}",
+            $"https://api.gh/repos/{owner}/{repository}",
+            null));
 
     public static Result<T> Unavailable<T>() => Result<T>.Error(GitHubErrors.RequestFailed);
 
@@ -119,4 +133,18 @@ public sealed class FakeGitHubService : IGitHubService
         int number,
         CancellationToken cancellationToken = default) =>
         Task.FromResult(Reviews(owner, repository, number));
+
+    public Task<Result<GitHubIssue>> GetIssueAsync(
+        string owner,
+        string repository,
+        int number,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult(Issue(owner, repository, number));
+
+    public Task<Result<IReadOnlyList<GitHubIssue>>> SearchIssuesAsync(
+        string owner,
+        string repository,
+        string query,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult(IssueSearch(owner, repository, query));
 }

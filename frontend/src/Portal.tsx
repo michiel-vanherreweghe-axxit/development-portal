@@ -17,8 +17,9 @@ import {
   type PullRequestView,
 } from "./dashboard/model";
 import { usePortalData } from "./dashboard/usePortalData";
+import { PlanningPage } from "./planning/PlanningPage";
 import { SettingsPage } from "./settings/SettingsPage";
-import { IconGear, IconRepo } from "./shell/icons";
+import { IconGear, IconPlan, IconRepo } from "./shell/icons";
 import { Shell } from "./shell/Shell";
 import type { Command, PageDefinition } from "./shell/types";
 import { Confirm, type Question } from "./ui/Confirm";
@@ -189,6 +190,19 @@ export function Portal({ session }: { session: Session }) {
               void data.commit((current) => ({ ...current, runLimit }), `Showing the last ${runLimit} runs.`, null)
             }
           />
+        ),
+    },
+    {
+      id: "planning",
+      title: "Planning",
+      hint: "Plan your days and weeks from issues and to-dos",
+      icon: <IconPlan />,
+      group: "Planning",
+      render: () =>
+        !connected ? (
+          <NotConnected />
+        ) : (
+          <PlanningPage repositories={data.repositories} notify={notify} onUnauthorized={session.expired} />
         ),
     },
     {

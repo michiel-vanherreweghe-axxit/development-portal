@@ -15,6 +15,23 @@ export const IconRepo = () => (
   </svg>
 );
 
+export const IconPlan = () => (
+  <svg
+    width="15"
+    height="15"
+    viewBox="0 0 16 16"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.5"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    <rect x="2.5" y="3" width="11" height="10.5" rx="1.5" />
+    <path d="M2.5 6.5h11M5.5 1.8v2.4M10.5 1.8v2.4M5.5 9.5l1.6 1.4 3-2.8" />
+  </svg>
+);
+
 export const IconMark = () => (
   <svg
     width="17"
