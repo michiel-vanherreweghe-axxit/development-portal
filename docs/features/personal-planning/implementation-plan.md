@@ -23,8 +23,8 @@ milestones:
     commit: 046c3ab
   - id: 3
     title: Plan item operations and endpoints
-    status: todo
-    commit: null
+    status: done
+    commit: 25ce72e
   - id: 4
     title: Frontend api client and planning model
     status: todo
@@ -164,3 +164,6 @@ Creating, editing or closing GitHub issues; team or shared plans; calendar sync;
 
 ### Milestone 1 — migration
 `dotnet ef` is not installed in this environment, so the `AddPlanItems` migration, its designer and the snapshot update were written by hand in the generator's format. A throwaway test confirmed `HasPendingModelChanges()` is false against the Npgsql provider (the migration was not applied; there is no PostgreSQL here).
+
+### Milestone 3 — case-sensitive duplicate check, issue titles
+The duplicate check in `CreatePlanItem` and `UpdatePlanItem` compares owner and repository exactly, like the unique index, instead of case-insensitively: the repository analyzers reject `ToLower()` in queries and `Equals(..., OrdinalIgnoreCase)` does not translate. Names come from the repository list GitHub returns, so their casing is consistent. Issue titles longer than 200 characters are cut in the snapshot (domain `Truncate`) rather than refused, since GitHub allows 256.
