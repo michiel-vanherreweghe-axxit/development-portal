@@ -10,7 +10,7 @@ database:   portal
 seeded:     false
 pr:         null
 artifacts:
-  plan:     null
+  plan:     https://claude.ai/code/artifact/dedb59db-4eb0-4220-b697-e6644baa9f38
   handover: null
 milestones:
   - id: 1
