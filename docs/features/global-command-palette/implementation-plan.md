@@ -10,7 +10,7 @@ database:   null
 seeded:     false
 pr:         null
 artifacts:
-  plan:     null
+  plan:     https://claude.ai/code/artifact/5658ab80-f659-4df5-85c5-09a209083427
   handover: null
 milestones:
   - id: 1
@@ -156,7 +156,7 @@ Assumptions made (no blocking questions):
 - "Configurable shortcut" means a single definition in code, not a user-facing setting.
 - No roles exist on the client; "permissions" means connected/not connected plus server-side checks. Backend endpoint role gates were not re-read since no backend change is planned.
 - Nested groups are shown inside the same palette with a breadcrumb, not as a second dialog.
-- Plan artifact (Dutch) is not published by this run; `artifacts.plan` stays null.
+- The Dutch plan artifact is published (private); its URL is in `artifacts.plan`.
 - Checks needing Docker are not applicable (frontend only); nothing was run in this planning step.
 
 ## Out of scope
