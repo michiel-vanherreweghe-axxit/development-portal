@@ -27,8 +27,8 @@ milestones:
     commit: 25ce72e
   - id: 4
     title: Frontend api client and planning model
-    status: todo
-    commit: null
+    status: done
+    commit: 0f665d8
   - id: 5
     title: Planning page
     status: todo
