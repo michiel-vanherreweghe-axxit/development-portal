@@ -75,14 +75,17 @@ public sealed class PlanItem : Entity
             errors.Add(new ValidationError { Identifier = nameof(IssueNumber), ErrorCode = "PlanItem.IssueNumberInvalid" });
         }
 
-        errors.AddRange(ValidateText(title, null));
+        if (string.IsNullOrWhiteSpace(title))
+        {
+            errors.Add(new ValidationError { Identifier = nameof(Title), ErrorCode = "PlanItem.TitleRequired" });
+        }
 
         return errors.Count > 0
             ? Result<PlanItem>.Invalid(errors)
             : Result<PlanItem>.Success(new PlanItem
             {
                 UserId = userId,
-                Title = title!.Trim(),
+                Title = Truncate(title!),
                 Owner = owner,
                 Repository = repository,
                 IssueNumber = issueNumber,
@@ -135,9 +138,9 @@ public sealed class PlanItem : Entity
 
     public void RefreshTitle(string title)
     {
-        if (IsIssue && title.Length is > 0 and <= TitleMaxLength)
+        if (IsIssue && !string.IsNullOrWhiteSpace(title))
         {
-            Title = title;
+            Title = Truncate(title);
         }
     }
 
@@ -160,6 +163,14 @@ public sealed class PlanItem : Entity
         }
 
         return errors;
+    }
+
+    // The title is GitHub's, which allows more than a to-do does; a snapshot is cut, not refused.
+    private static string Truncate(string title)
+    {
+        var trimmed = title.Trim();
+
+        return trimmed.Length <= TitleMaxLength ? trimmed : trimmed[..TitleMaxLength];
     }
 
     private static string? NormaliseDescription(string? description) =>

@@ -101,6 +101,17 @@ public class PlanItemTests
     }
 
     [Fact]
+    public void CreateIssue_WithATitleLongerThanATodoAllows_CutsTheSnapshot()
+    {
+        // Act
+        var result = PlanItem.CreateIssue(1, "axxitbe/portal", 12, new string('a', 250), PlanSpan.Day, Sunday);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.Equal(PlanItem.TitleMaxLength, result.Value.Title.Length);
+    }
+
+    [Fact]
     public void MoveTo_AWeek_NormalisesStartToMonday()
     {
         // Arrange

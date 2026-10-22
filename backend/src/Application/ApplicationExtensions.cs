@@ -16,5 +16,10 @@ public static class ApplicationExtensions
             .AddScoped<ReadRuns.ReadRuns>()
             .AddScoped<ReadPullRequests.ReadPullRequests>()
             .AddScoped<ClosePullRequest.ClosePullRequest>()
-            .AddScoped<MergePullRequest.MergePullRequest>();
+            .AddScoped<MergePullRequest.MergePullRequest>()
+            .AddScoped<ReadPlanItems.ReadPlanItems>()
+            .AddScoped<CreatePlanItem.CreatePlanItem>()
+            .AddScoped<UpdatePlanItem.UpdatePlanItem>()
+            .AddScoped<DeletePlanItem.DeletePlanItem>()
+            .AddScoped<ReadIssues.ReadIssues>();
 }

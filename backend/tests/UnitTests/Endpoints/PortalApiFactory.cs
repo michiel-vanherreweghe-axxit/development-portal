@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Security.Claims;
 using System.Text.Encodings.Web;
+using Domain.Planning;
 using Domain.Users;
 using Domain.Watches;
 using Infrastructure.Database;
@@ -22,16 +23,57 @@ public sealed class PortalApiFactory : WebApplicationFactory<Api.Program>
     public const long GitHubId = 4242;
     public const string Login = "tester";
 
+    private long _nextGitHubId = 9000;
+
     private readonly string _databaseName = $"tests-{Guid.NewGuid():N}";
 
     public FakeGitHubService GitHub { get; } = new();
 
-    public HttpClient CreateSignedInClient()
+    public HttpClient CreateSignedInClient(long gitHubId = GitHubId)
     {
         var client = CreateClient();
-        client.DefaultRequestHeaders.Add(UserHeader, GitHubId.ToString(CultureInfo.InvariantCulture));
+        client.DefaultRequestHeaders.Add(UserHeader, gitHubId.ToString(CultureInfo.InvariantCulture));
 
         return client;
+    }
+
+    /// <summary>A fresh user with a client signed in as them, so tests sharing a factory never share rows.</summary>
+    public async Task<(HttpClient Client, int UserId)> CreateUserAsync()
+    {
+        var gitHubId = Interlocked.Increment(ref _nextGitHubId);
+
+        return (CreateSignedInClient(gitHubId), await SeedOtherUserAsync(gitHubId));
+    }
+
+    public async Task<int> SeedOtherUserAsync(long gitHubId)
+    {
+        using var scope = Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+        var user = User.Create(gitHubId, $"other-{gitHubId}", null, DateTimeOffset.UtcNow).Value!;
+        await context.Users.AddAsync(user);
+        await context.SaveChangesAsync();
+
+        return user.Id;
+    }
+
+    public async Task<PlanItem> SeedPlanItemAsync(PlanItem item)
+    {
+        using var scope = Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+        await context.PlanItems.AddAsync(item);
+        await context.SaveChangesAsync();
+
+        return item;
+    }
+
+    public async Task<List<PlanItem>> ReadPlanItemsAsync()
+    {
+        using var scope = Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+        return await context.PlanItems.AsNoTracking().ToListAsync();
     }
 
     public async Task<int> SeedUserAsync(params (string Repository, string WorkflowFile)[] watches)
