@@ -25,6 +25,22 @@ public class GitHubMapperTests
     }
 
     [Fact]
+    public void ToDto_ForAnIssue_KeepsNumberTitleStateAndUrl()
+    {
+        // Arrange
+        var issue = new GitHubIssue(7, "Broken", "closed", "https://gh/o/r/issues/7", "https://api.gh/repos/o/r", null);
+
+        // Act
+        var mapped = GitHubMapper.ToDto(issue);
+
+        // Assert
+        Assert.Equal(7, mapped.Number);
+        Assert.Equal("Broken", mapped.Title);
+        Assert.Equal("closed", mapped.State);
+        Assert.Equal("https://gh/o/r/issues/7", mapped.Url);
+    }
+
+    [Fact]
     public void ToDto_ForAWorkflow_KeepsOnlyTheFileName()
     {
         // Arrange

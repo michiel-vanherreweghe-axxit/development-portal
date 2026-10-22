@@ -63,6 +63,20 @@ public interface IGitHubService
         string repository,
         int number,
         CancellationToken cancellationToken = default);
+
+    // NotFound when the issue is gone or hidden from the token: the caller keeps its own record of it.
+    public Task<Result<GitHubIssue>> GetIssueAsync(
+        string owner,
+        string repository,
+        int number,
+        CancellationToken cancellationToken = default);
+
+    // First page of the most recently updated issues of one repository only.
+    public Task<Result<IReadOnlyList<GitHubIssue>>> SearchIssuesAsync(
+        string owner,
+        string repository,
+        string query,
+        CancellationToken cancellationToken = default);
 }
 
 internal sealed class GitHubService(IGitHubApi gitHubApi, ILogger<GitHubService> logger) : IGitHubService
@@ -70,6 +84,7 @@ internal sealed class GitHubService(IGitHubApi gitHubApi, ILogger<GitHubService>
     private const int MaxPages = 5;
     private const int PageSize = 100;
     private const int PullRequestsPerRepository = 20;
+    private const int IssueSearchPageSize = 30;
     private const string SquashMerge = "squash";
 
     // A token GitHub rejects is the user's problem to fix; anything else is ours, and the two
@@ -175,6 +190,57 @@ internal sealed class GitHubService(IGitHubApi gitHubApi, ILogger<GitHubService>
         CancellationToken cancellationToken = default) =>
         CallAsync<IReadOnlyList<GitHubReview>>(() =>
             PagedAsync(page => gitHubApi.GetReviewsAsync(owner, repository, number, page, PageSize, cancellationToken)));
+
+    public async Task<Result<GitHubIssue>> GetIssueAsync(
+        string owner,
+        string repository,
+        int number,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            return Result<GitHubIssue>.Success(await gitHubApi.GetIssueAsync(owner, repository, number, cancellationToken));
+        }
+        catch (ApiException exception) when (IsUnavailable(exception))
+        {
+            return Result<GitHubIssue>.NotFound(GitHubErrors.Unavailable);
+        }
+        catch (Exception exception) when (IsCallFailure(exception))
+        {
+            logger.LogWarning(exception, "GitHub call failed");
+
+            return Result<GitHubIssue>.Error(GitHubErrors.RequestFailed);
+        }
+    }
+
+    public Task<Result<IReadOnlyList<GitHubIssue>>> SearchIssuesAsync(
+        string owner,
+        string repository,
+        string query,
+        CancellationToken cancellationToken = default) =>
+        CallAsync<IReadOnlyList<GitHubIssue>>(async () =>
+        {
+            var search = await gitHubApi.SearchIssuesAsync(
+                $"repo:{owner}/{repository} is:issue {query}".TrimEnd(),
+                IssueSearchPageSize,
+                cancellationToken);
+
+            // A qualifier typed into the query could widen the search to another repository.
+            var repositoryUrlEnd = $"/repos/{owner}/{repository}";
+
+            return search.Items
+                .Where(issue => issue.PullRequest is null
+                    && issue.RepositoryUrl.EndsWith(repositoryUrlEnd, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+        });
+
+    // 403 is "no access" unless the quota ran out, which says nothing about the issue itself.
+    private static bool IsUnavailable(ApiException exception) =>
+        exception.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.Gone ||
+        (exception.StatusCode == HttpStatusCode.Forbidden && !IsRateLimited(exception));
+
+    private static bool IsRateLimited(ApiException exception) =>
+        exception.Headers.TryGetValues("x-ratelimit-remaining", out var values) && values.Contains("0");
 
     private static async Task<IReadOnlyList<T>> PagedAsync<T>(Func<int, Task<IReadOnlyList<T>>> readPage)
     {

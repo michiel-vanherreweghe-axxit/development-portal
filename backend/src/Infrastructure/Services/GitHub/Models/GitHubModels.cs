@@ -48,3 +48,16 @@ public sealed record GitHubPullRequestUpdate(string State);
 
 // The head sha the merge was decided on, so GitHub refuses a head that moved since.
 public sealed record GitHubMerge(string Sha, string MergeMethod);
+
+// PullRequest is only present when the "issue" is really a pull request.
+public sealed record GitHubIssue(
+    int Number,
+    string Title,
+    string State,
+    string HtmlUrl,
+    string RepositoryUrl,
+    GitHubPullRequestMarker? PullRequest);
+
+public sealed record GitHubPullRequestMarker(string? Url);
+
+public sealed record GitHubIssueSearch(IReadOnlyList<GitHubIssue> Items);

@@ -10,4 +10,7 @@ public static class GitHubErrors
 
     // GitHub itself said no to a write: a merge conflict, a protection rule, a moved head.
     public const string Refused = "GitHub.Refused";
+
+    // The issue is gone or not visible to the user's token, as opposed to GitHub failing to answer.
+    public const string Unavailable = "GitHub.Unavailable";
 }
