@@ -31,8 +31,8 @@ milestones:
     commit: 0f665d8
   - id: 5
     title: Planning page
-    status: todo
-    commit: null
+    status: done
+    commit: f5cb643
 ---
 
 # Implementation plan: Personal planning
@@ -167,3 +167,11 @@ Creating, editing or closing GitHub issues; team or shared plans; calendar sync;
 
 ### Milestone 3 — case-sensitive duplicate check, issue titles
 The duplicate check in `CreatePlanItem` and `UpdatePlanItem` compares owner and repository exactly, like the unique index, instead of case-insensitively: the repository analyzers reject `ToLower()` in queries and `Equals(..., OrdinalIgnoreCase)` does not translate. Names come from the repository list GitHub returns, so their casing is consistent. Issue titles longer than 200 characters are cut in the snapshot (domain `Truncate`) rather than refused, since GitHub allows 256.
+
+### Milestone 5 — shared finder, unverified checks
+`RepositoryFinder` gained an optional `placeholder` prop so the issue finder reuses it instead of a second repository picker. The planning page was verified only through `npm run lint`, `npm run build` and the model tests; its behaviour in a browser was not exercised (no browser here).
+
+## Unverified in this environment
+
+- The `AddPlanItems` migration was not applied: there is no PostgreSQL. The unique index on `PlanItems` is therefore only covered by the migration and snapshot (model/snapshot agreement was checked), not by a running database.
+- The planning page UI was not clicked through.
