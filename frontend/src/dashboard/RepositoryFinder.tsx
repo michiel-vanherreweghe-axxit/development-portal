@@ -10,10 +10,11 @@ interface RepositoryFinderProps {
   repositories: Repository[];
   watches: Watch[];
   onPick: (repository: string) => void;
+  placeholder?: string;
 }
 
 /** Type to find a repository, or press / from anywhere on the page. */
-export function RepositoryFinder({ repositories, watches, onPick }: RepositoryFinderProps) {
+export function RepositoryFinder({ repositories, watches, onPick, placeholder }: RepositoryFinderProps) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [cursor, setCursor] = useState(0);
@@ -100,7 +101,7 @@ export function RepositoryFinder({ repositories, watches, onPick }: RepositoryFi
           autoComplete="off"
           placeholder={
             repositories.length
-              ? `Search ${repositories.length} repositories to watch a workflow`
+              ? (placeholder ?? `Search ${repositories.length} repositories to watch a workflow`)
               : "Loading repositories…"
           }
           onChange={(event) => {

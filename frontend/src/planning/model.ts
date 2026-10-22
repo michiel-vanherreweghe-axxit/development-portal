@@ -68,3 +68,24 @@ export const summary = (items: PlanItem[]) => ({
   done: items.filter((item) => item.isCompleted).length,
   total: items.length,
 });
+
+export interface PlanTarget {
+  value: string;
+  label: string;
+  span: PlanSpan;
+  date: string;
+}
+
+const dayLabel = (date: Date) =>
+  date.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
+
+/** Where a new entry can go from the current view: the week itself, or one of the days shown. */
+export function planTargets(span: PlanSpan, date: Date): PlanTarget[] {
+  const monday = toIsoDate(mondayOf(date));
+  const days = span === "Week" ? weekDays(date) : [date];
+
+  return [
+    ...days.map((day) => ({ value: toIsoDate(day), label: dayLabel(day), span: "Day" as const, date: toIsoDate(day) })),
+    { value: "week", label: "This week", span: "Week" as const, date: monday },
+  ];
+}

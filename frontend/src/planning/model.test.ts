@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { PlanItem } from "../api/types";
-import { addDays, mondayOf, parseIsoDate, shift, summary, toIsoDate, visibleItems, weekDays, weekRange } from "./model";
+import { addDays, mondayOf, parseIsoDate, planTargets, shift, summary, toIsoDate, visibleItems, weekDays, weekRange } from "./model";
 
 const item = (overrides: Partial<PlanItem> = {}): PlanItem => ({
   id: 1,
@@ -125,5 +125,27 @@ describe("summary", () => {
 
     // Assert
     expect(counted).toEqual({ done: 2, total: 3 });
+  });
+});
+
+describe("planTargets", () => {
+  it("offers the shown day and the week in day mode", () => {
+    // Act
+    const targets = planTargets("Day", day("2026-10-21"));
+
+    // Assert
+    expect(targets.map((target) => [target.value, target.span, target.date])).toEqual([
+      ["2026-10-21", "Day", "2026-10-21"],
+      ["week", "Week", "2026-10-19"],
+    ]);
+  });
+
+  it("offers every day of the week and the week itself in week mode", () => {
+    // Act
+    const targets = planTargets("Week", day("2026-10-25"));
+
+    // Assert
+    expect(targets).toHaveLength(8);
+    expect(targets.at(-1)).toMatchObject({ value: "week", date: "2026-10-19" });
   });
 });
