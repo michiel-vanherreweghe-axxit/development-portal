@@ -15,8 +15,8 @@ artifacts:
 milestones:
   - id: 1
     title: PlanItem domain, persistence and migration
-    status: todo
-    commit: null
+    status: done
+    commit: bba39a5
   - id: 2
     title: GitHub issue read and search in the GitHub service
     status: todo
@@ -159,3 +159,8 @@ Assumptions made (no blocking ambiguity):
 ## Out of scope
 
 Creating, editing or closing GitHub issues; team or shared plans; calendar sync; recurring tasks; priorities and estimates; automatic scheduling or recommendations; automatic roll-over of unfinished items; drag-and-drop; cross-repository free-text search; background sync of issue state.
+
+## Deviations
+
+### Milestone 1 — migration
+`dotnet ef` is not installed in this environment, so the `AddPlanItems` migration, its designer and the snapshot update were written by hand in the generator's format. A throwaway test confirmed `HasPendingModelChanges()` is false against the Npgsql provider (the migration was not applied; there is no PostgreSQL here).
