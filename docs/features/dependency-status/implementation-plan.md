@@ -10,7 +10,7 @@ database:   null                      # no schema change, no migration
 seeded:     false
 pr:         null
 artifacts:
-  plan:     null
+  plan:     https://claude.ai/code/artifact/a282e501-fb50-489b-b81c-bab3551727de
   handover: null
 milestones:
   - id: 1
