@@ -70,7 +70,7 @@ export const REVIEW: Record<string, { tone: "pass" | "fail" | "idle"; text: stri
 
 export const review = (state: ReviewState) => REVIEW[state.toLowerCase()] ?? REVIEW.reviewrequired!;
 
-export type ChecksState = "none" | "fail" | "run" | "pass";
+export type ChecksState = "none" | "fail" | "run" | "incomplete" | "pass";
 
 export interface PullRequestView extends PullRequest {
   failing: number;
@@ -90,17 +90,18 @@ export function buildPullRequests(pullRequests: PullRequest[]): PullRequestView[
     .map((pullRequest) => {
       const failing = pullRequest.checks.filter((check) => BAD.includes(check.conclusion)).length;
       const running = pullRequest.checks.filter((check) => BUSY.includes(check.conclusion)).length;
-      const passing = pullRequest.checks.filter((check) => check.conclusion === "success").length;
+      const passing = pullRequest.checks.filter((check) => GREEN.includes(check.conclusion)).length;
       const state: ChecksState = !pullRequest.checks.length
         ? "none"
         : failing
           ? "fail"
           : running
             ? "run"
-            : "pass";
+            : passing === pullRequest.checks.length
+              ? "pass"
+              : "incomplete";
 
-      const green =
-        pullRequest.checks.length > 0 && pullRequest.checks.every((check) => GREEN.includes(check.conclusion));
+      const green = state === "pass";
 
       return {
         ...pullRequest,
