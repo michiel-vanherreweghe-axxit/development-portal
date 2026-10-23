@@ -101,6 +101,28 @@ describe("buildPullRequests", () => {
     expect(built[0]?.ready).toBe(false);
   });
 
+  it.each(["cancelled", "action_required"])("does not call a pull request with a %s check passed", (conclusion) => {
+    // Arrange
+    const pullRequests = [pullRequest({ checks: [check("success"), check(conclusion)] })];
+
+    // Act
+    const [built] = buildPullRequests(pullRequests);
+
+    // Assert
+    expect(built).toMatchObject({ state: "incomplete", mergeable: false });
+  });
+
+  it("counts skipped and neutral checks as passed", () => {
+    // Arrange
+    const pullRequests = [pullRequest({ checks: [check("skipped"), check("neutral")] })];
+
+    // Act
+    const [built] = buildPullRequests(pullRequests);
+
+    // Assert
+    expect(built).toMatchObject({ passing: 2, state: "pass", mergeable: true });
+  });
+
   it("has no checks state when the pull request has no checks", () => {
     // Arrange
     const pullRequests = [pullRequest()];

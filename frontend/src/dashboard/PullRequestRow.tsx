@@ -24,6 +24,12 @@ function ChecksBadge({ pullRequest }: { pullRequest: PullRequestView }) {
           {pullRequest.running} running
         </span>
       );
+    case "incomplete":
+      return (
+        <span className="badge idle" title={tip}>
+          {pullRequest.passing}/{pullRequest.checks.length} passed
+        </span>
+      );
     default:
       return (
         <span className="badge pass" title={tip}>
