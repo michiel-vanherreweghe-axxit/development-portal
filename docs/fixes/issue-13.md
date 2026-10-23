@@ -9,4 +9,6 @@ Source: michiel-vanherreweghe-axxit/development-portal#13
       `model.test.ts › counts skipped and neutral checks as passed` · defect `model.ts:93`
       red: `expected {…} to match object { passing: 2, state: 'pass', … }` → green
 
+Handover: https://claude.ai/code/artifact/96e5dbf9-2bb4-43c4-acd9-6f9497efc0cd
+
 Both fixed in `buildPullRequests`: `passing` counts `GREEN`, state is `pass` only when every check is green, otherwise new `incomplete` (neutral badge without ✓). `mergeable`/`ready` now derive from that same state. Backend `MergePullRequest.cs` already used the same green rule; unchanged.
